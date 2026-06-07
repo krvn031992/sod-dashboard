@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   State of Dance — Internal Operating Dashboard
+   Brand foundations. Premium, clean, confident. No glow.
+   Palette: plum #270934 (primary), gold #DEB060 (accent),
+   cream #FFF0DC (light bg), violet #7357FF, magenta #580078.
+   ============================================================ */
+
+@theme {
+  /* Plum / aubergine scale (primary surfaces) */
+  --color-plum-950: #0c0312;
+  --color-plum-900: #140420;
+  --color-plum-850: #1b0926;
+  --color-plum-800: #210a2d;
+  --color-plum-700: #270934; /* brand primary */
+  --color-plum-600: #3a1150;
+  --color-plum-500: #4d1d68;
+
+  /* Gold (accent) */
+  --color-gold-400: #e7b764;
+  --color-gold: #deb060; /* brand accent */
+  --color-gold-600: #b8893b;
+
+  /* Supporting brand hues */
+  --color-cream: #fff0dc;
+  --color-violet: #7357ff;
+  --color-magenta: #580078;
+
+  /* Text */
+  --color-ink: #f6f0e8;
+  --color-ink-soft: #c6b6d2;
+  --color-ink-mute: #9784a6;
+
+  /* Status (muted, professional — no neon) */
+  --color-ok: #5ccf9b;
+  --color-warn: #e7b764;
+  --color-bad: #f08a7d;
+
+  /* Type */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'Open Sans', system-ui, sans-serif;
+
+  /* Radius */
+  --radius-card: 18px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-plum-950);
+    background-image:
+      radial-gradient(1100px 620px at 78% -10%, rgba(115, 87, 255, 0.16), transparent 60%),
+      radial-gradient(900px 560px at -10% 8%, rgba(88, 0, 120, 0.28), transparent 58%),
+      linear-gradient(180deg, var(--color-plum-900), var(--color-plum-950));
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, legend {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Focus ring — keyboard accessible, on-brand */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input, select, textarea, button {
+    font: inherit;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-mute);
+  }
+
+  /* Slim, on-brand scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(222, 176, 96, 0.25) transparent;
+  }
+}
+
+@layer components {
+  /* Frosted panel used across cards, the shell, and dialogs. */
+  .panel {
+    background: linear-gradient(180deg, rgba(58, 17, 80, 0.34), rgba(27, 9, 38, 0.5));
+    border: 1px solid rgba(222, 176, 96, 0.16);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(8px);
+  }
+
+  .panel-hairline {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Uppercase eyebrow label */
+  .eyebrow {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-gold);
+  }
+}

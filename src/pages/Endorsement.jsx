@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { demoStore } from '../lib/demoData'
-import { roleMetrics } from '../lib/roles'
-import { Card, CardTitle, Field, Input, Button, Badge } from '../components/ui'
+import { demoStore, DEMO_PROFILES } from '../lib/demoData'
+import { roleMetrics, roleLabel, can } from '../lib/roles'
+import { Card, CardTitle, Field, Input, Button, Badge, Avatar } from '../components/ui'
 
 const manilaDate = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -185,6 +185,8 @@ export default function Endorsement() {
         </form>
       </Card>
 
+      {can.viewAllEndorsements(role) && <TeamEndorsements isDemo={isDemo} />}
+
       <Card>
         <CardTitle eyebrow="Last 7 days" title="Your recent endorsements" />
         {loading ? (
@@ -218,5 +220,88 @@ export default function Endorsement() {
         )}
       </Card>
     </div>
+  )
+}
+
+// Managers (CEO / COO / Admin Manager) see everyone's recent endorsements.
+function TeamEndorsements({ isDemo }) {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(!isDemo)
+
+  const load = useCallback(async () => {
+    if (isDemo) {
+      const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
+      setRows(
+        [...demoStore.endorsements]
+          .sort((a, b) => (b.work_date + b.id).localeCompare(a.work_date + a.id))
+          .map((e) => ({ ...e, author: nameOf[e.user_id] })),
+      )
+      return
+    }
+    const { data } = await supabase
+      .from('endorsements')
+      .select('*, author:user_id (full_name, role)')
+      .order('work_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setRows(data || [])
+    setLoading(false)
+  }, [isDemo])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
+
+  return (
+    <Card>
+      <CardTitle
+        eyebrow="Whole team"
+        title="Team endorsements"
+        action={<Badge tone="neutral">{rows.length}</Badge>}
+      />
+      {loading ? (
+        <p className="text-sm text-ink-soft">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-ink-soft">No endorsements submitted yet.</p>
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((e) => {
+            const [l1, l2] = roleMetrics(e.author?.role)
+            return (
+              <li key={e.id} className="rounded-2xl border border-white/8 bg-plum-950/40 p-3.5">
+                <div className="flex items-center gap-3">
+                  <Avatar name={e.author?.full_name} size={32} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-ink">
+                      {e.author?.full_name || 'Member'}
+                      <span className="ml-2 text-xs font-normal text-gold">
+                        {roleLabel(e.author?.role)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-ink-mute">{e.work_date}</div>
+                  </div>
+                  <span className="flex shrink-0 gap-1.5">
+                    <Badge tone="gold">{l1}: {e.metric_one ?? 0}</Badge>
+                    <Badge tone="violet">{l2}: {e.metric_two ?? 0}</Badge>
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1 text-sm">
+                  {e.completed && (
+                    <p className="text-ink-soft"><span className="text-ink-mute">Done: </span>{e.completed}</p>
+                  )}
+                  {e.blocked && (
+                    <p className="text-ink-soft"><span className="text-ink-mute">Blocked: </span>{e.blocked}</p>
+                  )}
+                  {e.next && (
+                    <p className="text-ink-soft"><span className="text-ink-mute">Next: </span>{e.next}</p>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
   )
 }

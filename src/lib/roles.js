@@ -36,6 +36,7 @@ export const can = {
   viewAudit: (r) => MANAGER_PLUS.includes(r),
   assignTasks: (r) => MANAGER_PLUS.includes(r),
   viewAllTasks: (r) => MANAGER_PLUS.includes(r),
+  viewAllEndorsements: (r) => MANAGER_PLUS.includes(r),
   viewAllAttendance: (r) => MANAGER_PLUS.includes(r),
   postAnnouncements: (r) => r === 'ceo' || r === 'coo',
   sendReminder: (r) => r === 'ceo' || r === 'coo',

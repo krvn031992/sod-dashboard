@@ -93,7 +93,11 @@ export const demoStore = {
       created_at: new Date().toISOString(),
     },
   ],
-  endorsements: [],
+  endorsements: [
+    { id: 'de-mgr', user_id: 'demo-mgr', work_date: today(), completed: 'Closed 4 re-enrollments; prepped QC roster', blocked: 'Waiting on 2 medical certs', next: 'Call BGC waitlist', metric_one: 6, metric_two: 4 },
+    { id: 'de-mkt', user_id: 'demo-mkt', work_date: today(), completed: 'Shipped 2 reels + 1 carousel', blocked: 'Carousel pending approval', next: 'Draft parent email', metric_one: 3, metric_two: 9 },
+    { id: 'de-staff', user_id: 'demo-staff', work_date: today(), completed: 'Handled walk-ins and phone inquiries', blocked: '', next: 'Follow up on 3 trial bookings', metric_one: 11, metric_two: 5 },
+  ],
   attendance: [],
   ledger: [
     { id: 'dl-1', entry_date: today(), type: 'income', category: 'Tuition', amount: 48500, branch: 'BGC', note: 'June enrollments', entered_by: 'demo-mgr' },

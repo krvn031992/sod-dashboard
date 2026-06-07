@@ -31,14 +31,17 @@ function QuickActions() {
   )
 }
 
+const emptyOverview = {
+  latestAnn: null,
+  pendingApprovals: null,
+  goals: null,
+  scoreboard: null,
+  reEnroll: null,
+  attendance: null,
+}
+
 function useOverview(managerPlus) {
-  const [data, setData] = useState({
-    latestAnn: null,
-    pendingApprovals: null,
-    goals: null,
-    scoreboard: null,
-    reEnroll: null,
-  })
+  const [data, setData] = useState(emptyOverview)
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -49,17 +52,12 @@ function useOverview(managerPlus) {
         goals: demoStore.goals.slice(0, 3),
         scoreboard: demoStore.benchmarks.slice(0, 5),
         reEnroll: yoy[yoy.length - 1]?.rate ?? null,
+        attendance: DEMO_OVERVIEW.attendance,
       })
       return
     }
 
-    const next = {
-      latestAnn: null,
-      pendingApprovals: null,
-      goals: null,
-      scoreboard: null,
-      reEnroll: null,
-    }
+    const next = { ...emptyOverview }
 
     const { data: ann } = await supabase
       .from('announcements')
@@ -81,12 +79,9 @@ function useOverview(managerPlus) {
       .select('*')
       .order('week_start', { ascending: false })
       .limit(20)
-    if (bm && bm.length) {
-      const latestWeek = bm[0].week_start
-      next.scoreboard = bm.filter((r) => r.week_start === latestWeek).slice(0, 5)
-    } else {
-      next.scoreboard = []
-    }
+    next.scoreboard = bm && bm.length
+      ? bm.filter((r) => r.week_start === bm[0].week_start).slice(0, 5)
+      : []
 
     if (managerPlus) {
       const { count } = await supabase
@@ -98,6 +93,18 @@ function useOverview(managerPlus) {
       const { data: cust } = await supabase.from('customers').select('master_customer_id, enrolled_year')
       const yoy = yearOverYear(cust || [])
       next.reEnroll = yoy[yoy.length - 1]?.rate ?? null
+
+      // Attendance today (managers can read all rows; one row per person per day).
+      const wd = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+      const { count: checkedIn } = await supabase
+        .from('attendance')
+        .select('id', { count: 'exact', head: true })
+        .eq('work_date', wd)
+      const { count: team } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('active', true)
+      next.attendance = { checkedIn: checkedIn ?? 0, team: team ?? 0 }
     }
 
     setData(next)
@@ -134,14 +141,17 @@ function AnnouncementCard({ ann }) {
 }
 
 export default function Dashboard() {
-  const { profile, role } = useAuth()
+  const { profile, role, isDemo } = useAuth()
   const o = DEMO_OVERVIEW
   const firstName = (profile?.full_name || 'there').split(' ')[0]
   const managerPlus = can.viewRetention(role)
-  const { latestAnn, pendingApprovals, goals, scoreboard, reEnroll } = useOverview(managerPlus)
+  const { latestAnn, pendingApprovals, goals, scoreboard, reEnroll, attendance } =
+    useOverview(managerPlus)
 
-  const approvalsValue = pendingApprovals ?? o.pendingApprovals
-  const reEnrollDisplay = reEnroll != null ? pct(reEnroll) : pct(o.reEnrollmentRate)
+  const approvalsValue = pendingApprovals ?? 0
+  const reEnrollDisplay = reEnroll != null ? pct(reEnroll) : '—'
+  const attendanceDisplay = attendance ? `${attendance.checkedIn}/${attendance.team}` : '—'
+  const recitalValue = scoreValue(scoreboard, 'Recital ticket sales')
 
   return (
     <div className="space-y-6">
@@ -166,11 +176,9 @@ export default function Dashboard() {
             <Link to="/retention">
               <StatTile label="Re-enrollment" value={reEnrollDisplay} sub="year over year" tone="text-gold" />
             </Link>
-            <StatTile
-              label="Attendance"
-              value={`${o.attendance.checkedIn}/${o.attendance.team}`}
-              sub="checked in today"
-            />
+            <Link to="/attendance">
+              <StatTile label="Attendance" value={attendanceDisplay} sub="checked in today" />
+            </Link>
             <Link to="/approvals">
               <StatTile
                 label="Approvals"
@@ -180,7 +188,7 @@ export default function Dashboard() {
               />
             </Link>
             <Link to="/scoreboard">
-              <StatTile label="Recital tickets" value={scoreValue(scoreboard, 'Recital ticket sales')} sub="this week" />
+              <StatTile label="Recital tickets" value={recitalValue} sub="this week" />
             </Link>
           </div>
 
@@ -188,14 +196,14 @@ export default function Dashboard() {
             <Link to="/scoreboard" className="block">
               <Card className="h-full transition hover:border-gold/40">
                 <CardTitle eyebrow="This week" title="Benchmarking scoreboard" />
-                <ScoreboardList scoreboard={scoreboard} demo={o.scoreboard} />
+                <ScoreboardList scoreboard={scoreboard} demo={isDemo ? o.scoreboard : null} />
               </Card>
             </Link>
 
             <Link to="/goals" className="block">
               <Card className="h-full transition hover:border-gold/40">
                 <CardTitle eyebrow="Active goals" title="Goal board" />
-                <GoalsList goals={goals} demo={o.goals} />
+                <GoalsList goals={goals} demo={isDemo ? o.goals : null} />
               </Card>
             </Link>
           </div>
@@ -223,7 +231,7 @@ function scoreValue(scoreboard, name) {
     const hit = scoreboard.find((s) => s.metric_name === name)
     if (hit) return String(hit.our_value)
   }
-  return '311' // demo fallback
+  return '—' // no figure entered yet
 }
 
 function ScoreboardList({ scoreboard, demo }) {
@@ -231,6 +239,9 @@ function ScoreboardList({ scoreboard, demo }) {
     scoreboard && scoreboard.length
       ? scoreboard.map((s) => ({ metric: s.metric_name, value: String(s.our_value) }))
       : demo
+  if (!items || items.length === 0) {
+    return <p className="text-sm text-ink-soft">No numbers entered yet — tap to add this week’s.</p>
+  }
   return (
     <ul className="divide-y divide-white/6">
       {items.map((s) => (
@@ -248,6 +259,9 @@ function GoalsList({ goals, demo }) {
     goals && goals.length
       ? goals.map((g) => ({ title: g.title, current: Number(g.current), target: Number(g.target) || 100 }))
       : demo
+  if (!items || items.length === 0) {
+    return <p className="text-sm text-ink-soft">No active goals yet — tap to add one.</p>
+  }
   return (
     <div className="space-y-4">
       {items.map((g) => (

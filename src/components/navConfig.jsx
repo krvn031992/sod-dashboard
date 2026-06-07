@@ -14,6 +14,7 @@ import {
   TargetIcon,
   CalendarIcon,
   ChatIcon,
+  ClassesIcon,
 } from './icons'
 
 // The four daily-ops items shown in the mobile bottom bar.
@@ -55,6 +56,9 @@ export function navSections(role) {
         { to: '/scoreboard', label: 'Scoreboard', icon: ScoreboardIcon },
         { to: '/goals', label: 'Goals', icon: TargetIcon },
         { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
+        ...(can.manageClasses(role)
+          ? [{ to: '/classes', label: 'Classes', icon: ClassesIcon }]
+          : []),
       ],
     },
     {

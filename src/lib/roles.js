@@ -43,6 +43,7 @@ export const can = {
   editScoreboard: (r) => r === 'ceo' || r === 'coo',
   editCalendar: (r) => r === 'ceo' || r === 'coo',
   inputCustomers: (r) => r === 'ceo' || r === 'admin_manager',
+  manageClasses: (r) => r === 'ceo' || r === 'coo' || r === 'admin_manager',
   approveItems: (r) => r === 'ceo',
   viewRetention: (r) => MANAGER_PLUS.includes(r),
 }

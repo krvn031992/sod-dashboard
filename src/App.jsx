@@ -16,6 +16,7 @@ import Scoreboard from './pages/Scoreboard'
 import Goals from './pages/Goals'
 import Calendar from './pages/Calendar'
 import Chat from './pages/Chat'
+import Classes from './pages/Classes'
 import Menu from './pages/Menu'
 import { LogoMark } from './components/Logo'
 
@@ -144,6 +145,14 @@ export default function App() {
         element={
           <Protected>
             <Chat />
+          </Protected>
+        }
+      />
+      <Route
+        path="/classes"
+        element={
+          <Protected allow={['ceo', 'coo', 'admin_manager']}>
+            <Classes />
           </Protected>
         }
       />

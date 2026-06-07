@@ -137,6 +137,13 @@ export const demoStore = {
     { id: 'db-4', week_start: weekStart(), metric_name: 'Recital ticket sales', our_value: 311, notes: '' },
     { id: 'db-5', week_start: weekStart(), metric_name: 'Lead-to-enrollment rate', our_value: 24, notes: '%' },
   ],
+  classes: [
+    { id: 'dcl-1', name: 'Ballet', active: true },
+    { id: 'dcl-2', name: 'Hip-hop', active: true },
+    { id: 'dcl-3', name: 'Jazz', active: true },
+    { id: 'dcl-4', name: 'Contemporary', active: true },
+    { id: 'dcl-5', name: 'Adult', active: true },
+  ],
   messages: [
     { id: 'dm-1', channel: 'general', sender_id: 'demo-coo', body: 'Morning team! Recital run sheet is locked — great work everyone.', attachment_url: null, created_at: new Date(Date.now() - 3600000).toISOString() },
     { id: 'dm-2', channel: 'general', sender_id: 'demo-mkt', body: 'Posting the re-enrollment carousel once it clears approval ✅', attachment_url: null, created_at: new Date(Date.now() - 1800000).toISOString() },

@@ -115,6 +115,13 @@ export const CalendarIcon = (p) => (
   </svg>
 )
 
+export const ClassesIcon = (p) => (
+  <svg {...base} {...p}>
+    <path d="M12 4 3 8l9 4 9-4-9-4z" />
+    <path d="M7 10.5V15c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5" />
+  </svg>
+)
+
 export const ChatIcon = (p) => (
   <svg {...base} {...p}>
     <path d="M4 5.5h16a1 1 0 0 1 1 1V16a1 1 0 0 1-1 1H9l-4 3.5V17H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1z" />

@@ -7,20 +7,26 @@ import { yearOverYear, latestBreakdown, pct } from '../lib/retention'
 import { Card, CardTitle, Field, Input, Select, Button, StatTile, Progress } from '../components/ui'
 
 const BRANCHES = ['BGC', 'Manila', 'Quezon City']
-const FORMATS = ['Ballet', 'Hip-hop', 'Jazz', 'Contemporary', 'Adult']
 
 export default function Retention() {
   const { role, isDemo } = useAuth()
   const canInput = can.inputCustomers(role)
 
   const [rows, setRows] = useState(() => (isSupabaseConfigured ? [] : [...demoStore.customers]))
+  const [formats, setFormats] = useState(() =>
+    isSupabaseConfigured ? [] : demoStore.classes.filter((c) => c.active).map((c) => c.name),
+  )
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [note, setNote] = useState(null)
 
   const fetchRows = useCallback(async () => {
-    const { data, error } = await supabase.from('customers').select('*')
+    const [{ data, error }, { data: cls }] = await Promise.all([
+      supabase.from('customers').select('*'),
+      supabase.from('class_offerings').select('name').eq('active', true).order('name'),
+    ])
     if (error) setNote({ tone: 'bad', msg: error.message })
     setRows(data || [])
+    setFormats((cls || []).map((c) => c.name))
     setLoading(false)
   }, [])
 
@@ -115,7 +121,7 @@ export default function Retention() {
         </>
       )}
 
-      {canInput && <AddCustomer onAdd={addCustomer} />}
+      {canInput && <AddCustomer onAdd={addCustomer} formats={formats} />}
     </div>
   )
 }
@@ -149,15 +155,16 @@ function BreakdownCard({ title, data }) {
   )
 }
 
-function AddCustomer({ onAdd }) {
+function AddCustomer({ onAdd, formats }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const thisYear = new Date().getFullYear()
+  const classList = formats && formats.length ? formats : ['Ballet']
   const [form, setForm] = useState({
     master_customer_id: '',
     name: '',
     branch: 'BGC',
-    class_format: 'Ballet',
+    class_format: classList[0],
     enrolled_year: String(thisYear),
   })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -204,7 +211,7 @@ function AddCustomer({ onAdd }) {
           </Field>
           <Field label="Class format">
             <Select value={form.class_format} onChange={set('class_format')}>
-              {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+              {classList.map((f) => <option key={f} value={f}>{f}</option>)}
             </Select>
           </Field>
           <Field label="Enrolled year">

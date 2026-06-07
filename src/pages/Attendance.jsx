@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { demoStore } from '../lib/demoData'
+import { demoStore, DEMO_PROFILES } from '../lib/demoData'
 import { can } from '../lib/roles'
 import { Card, CardTitle, Button, Badge, Avatar } from '../components/ui'
 import CameraCapture from '../components/CameraCapture'
@@ -185,41 +185,94 @@ export default function Attendance() {
 }
 
 // Manager view: who has checked in today.
+// Thumbnail of a check-in/out selfie. Click to open the full photo.
+function SelfieThumb({ url, label }) {
+  if (!url) return null
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      title={`${label} selfie — tap to enlarge`}
+      className="block"
+    >
+      <img
+        src={url}
+        alt={`${label} selfie`}
+        className="h-12 w-12 rounded-lg object-cover ring-1 ring-gold/30 transition hover:ring-gold"
+      />
+    </a>
+  )
+}
+
 function TodayRoster({ wd, isDemo }) {
   const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(!isDemo)
+  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (isDemo) return
+    if (isDemo) {
+      const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
+      // In demo the photo fields hold data URLs already, so use them directly.
+      setRows(
+        demoStore.attendance
+          .filter((a) => a.work_date === wd)
+          .map((a) => ({
+            ...a,
+            profiles: nameOf[a.user_id],
+            inUrl: a.check_in_photo_url,
+            outUrl: a.check_out_photo_url,
+          })),
+      )
+      setLoading(false)
+      return
+    }
+
     const { data } = await supabase
       .from('attendance')
-      .select('id, check_in_ts, check_out_ts, profiles:user_id (full_name, branch)')
+      .select(
+        'id, check_in_ts, check_out_ts, check_in_photo_url, check_out_photo_url, profiles:user_id (full_name, branch)',
+      )
       .eq('work_date', wd)
       .order('check_in_ts')
-    setRows(data || [])
+
+    const list = data || []
+    // Sign every selfie path in one batch (private bucket → signed URLs only).
+    const paths = list.flatMap((r) =>
+      [r.check_in_photo_url, r.check_out_photo_url].filter(Boolean),
+    )
+    let signed = {}
+    if (paths.length) {
+      const { data: urls } = await supabase.storage
+        .from('attendance')
+        .createSignedUrls(paths, 600)
+      signed = Object.fromEntries((urls || []).map((u) => [u.path, u.signedUrl]))
+    }
+    setRows(
+      list.map((r) => ({
+        ...r,
+        inUrl: r.check_in_photo_url ? signed[r.check_in_photo_url] : null,
+        outUrl: r.check_out_photo_url ? signed[r.check_out_photo_url] : null,
+      })),
+    )
     setLoading(false)
   }, [isDemo, wd])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!isDemo) load()
-  }, [load, isDemo])
+    load()
+  }, [load])
 
   return (
     <Card>
       <CardTitle eyebrow="Team" title="Checked in today" />
-      {isDemo ? (
-        <p className="text-sm text-ink-soft">
-          The live roster of who has checked in appears here once connected to Supabase.
-        </p>
-      ) : loading ? (
+      {loading ? (
         <p className="text-sm text-ink-soft">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-ink-soft">No check-ins yet today.</p>
       ) : (
         <ul className="divide-y divide-white/6">
           {rows.map((r) => (
-            <li key={r.id} className="flex items-center gap-3 py-2.5">
+            <li key={r.id} className="flex items-center gap-3 py-3">
               <Avatar name={r.profiles?.full_name} size={34} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-ink">
@@ -227,15 +280,15 @@ function TodayRoster({ wd, isDemo }) {
                 </div>
                 <div className="text-xs text-ink-mute">{r.profiles?.branch || '—'}</div>
               </div>
-              <div className="text-right text-xs text-ink-soft">
+              <div className="flex items-center gap-1.5">
+                <SelfieThumb url={r.inUrl} label="Check-in" />
+                <SelfieThumb url={r.outUrl} label="Check-out" />
+              </div>
+              <div className="w-16 text-right text-xs text-ink-soft">
                 <div>In {fmtTime(r.check_in_ts)}</div>
                 {r.check_out_ts && <div>Out {fmtTime(r.check_out_ts)}</div>}
               </div>
-              {r.check_out_ts ? (
-                <Badge tone="neutral">Done</Badge>
-              ) : (
-                <Badge tone="ok">In</Badge>
-              )}
+              {r.check_out_ts ? <Badge tone="neutral">Done</Badge> : <Badge tone="ok">In</Badge>}
             </li>
           ))}
         </ul>

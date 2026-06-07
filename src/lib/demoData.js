@@ -51,6 +51,13 @@ export const DEMO_PROFILES = [
 ]
 
 const today = () => new Date().toISOString().slice(0, 10)
+const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+// Stand-in "selfie" for demo mode (real selfies are camera photos in a private bucket).
+const DEMO_SELFIE =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#3a1150"/><circle cx="60" cy="46" r="22" fill="#deb060"/><rect x="26" y="74" width="68" height="40" rx="20" fill="#deb060"/></svg>',
+  )
 // Monday of the current week (YYYY-MM-DD).
 const weekStart = () => {
   const d = new Date()
@@ -98,7 +105,17 @@ export const demoStore = {
     { id: 'de-mkt', user_id: 'demo-mkt', work_date: today(), completed: 'Shipped 2 reels + 1 carousel', blocked: 'Carousel pending approval', next: 'Draft parent email', metric_one: 3, metric_two: 9 },
     { id: 'de-staff', user_id: 'demo-staff', work_date: today(), completed: 'Handled walk-ins and phone inquiries', blocked: '', next: 'Follow up on 3 trial bookings', metric_one: 11, metric_two: 5 },
   ],
-  attendance: [],
+  attendance: [
+    {
+      id: 'da-seed',
+      user_id: 'demo-staff',
+      work_date: manilaToday(),
+      check_in_ts: new Date(Date.now() - 7200000).toISOString(),
+      check_out_ts: null,
+      check_in_photo_url: DEMO_SELFIE,
+      check_out_photo_url: null,
+    },
+  ],
   ledger: [
     { id: 'dl-1', entry_date: today(), type: 'income', category: 'Tuition', amount: 48500, branch: 'BGC', note: 'June enrollments', entered_by: 'demo-mgr' },
     { id: 'dl-2', entry_date: today(), type: 'income', category: 'Recital tickets', amount: 31100, branch: 'Manila', note: 'VIP + GA', entered_by: 'demo-mgr' },

@@ -140,17 +140,23 @@ The complete capability matrix (ledger, approvals, attendance, etc.) is encoded 
 
 ---
 
-## Deploying to GitHub Pages
+## Live site
 
-The build uses a relative `base` and HashRouter, so it works from any sub-path.
+**https://krvn031992.github.io/sod-dashboard/** — published from the `gh-pages`
+branch of the `krvn031992/sod-dashboard` repo (separate from the ticketing site).
+
+### Redeploying after changes
+
+The repo's token lacks `workflow` scope, so there's no CI — deploys are a local
+build pushed to `gh-pages`. From `dashboard/`:
 
 ```bash
-npm run build
-# publish dashboard/dist/ — e.g. via GitHub Actions, or push to a gh-pages branch
+bash deploy.sh
 ```
 
-Set the Supabase env vars as build-time secrets in your CI (they are inlined into the
-bundle; only the public anon key, never the service key).
+That builds with the keys in `.env.local` (anon key only — public-safe) and force-
+pushes the result to `gh-pages`; it's live again in ~1 minute. The build uses a
+relative `base` + HashRouter so it works under the `/sod-dashboard/` sub-path.
 
 ---
 

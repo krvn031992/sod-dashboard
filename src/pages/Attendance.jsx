@@ -18,6 +18,22 @@ const fmtTime = (ts) =>
       })
     : '—'
 
+// Build + download a CSV from a 2D array of rows (header first). No deps.
+function downloadCsv(filename, rows2d) {
+  const cell = (v) => {
+    const s = v == null ? '' : String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const csv = rows2d.map((r) => r.map(cell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Attendance() {
   const { profile, role, isDemo } = useAuth()
   const [record, setRecord] = useState(null)
@@ -426,12 +442,50 @@ function AttendanceByEmployee({ isDemo }) {
   }
   const isThisMonth = month === thisMonth()
 
+  const exportCsv = () => {
+    const detail = [['Employee', 'Branch', 'Date', 'Check-in', 'Check-out', 'Hours']]
+    rows
+      .slice()
+      .sort((a, b) =>
+        (a.profiles?.full_name || '').localeCompare(b.profiles?.full_name || '') ||
+        a.work_date.localeCompare(b.work_date),
+      )
+      .forEach((r) => {
+        const h =
+          r.check_in_ts && r.check_out_ts
+            ? ((new Date(r.check_out_ts) - new Date(r.check_in_ts)) / 3600000).toFixed(2)
+            : ''
+        detail.push([
+          r.profiles?.full_name || 'Member',
+          r.profiles?.branch || '',
+          r.work_date,
+          fmtTime(r.check_in_ts),
+          r.check_out_ts ? fmtTime(r.check_out_ts) : '',
+          h,
+        ])
+      })
+    // Blank line then a per-employee totals block.
+    detail.push([])
+    detail.push(['Employee', 'Days', 'Total hours'])
+    employees.forEach((e) => detail.push([e.name, e.days, e.hours.toFixed(2)]))
+    downloadCsv(`attendance-${month}.csv`, detail)
+  }
+
   return (
     <Card>
       <CardTitle
         eyebrow="Attendance record"
         title={monthLabel(month)}
-        action={<Badge tone="neutral">{employees.length} staff</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge tone="neutral">{employees.length} staff</Badge>
+            {employees.length > 0 && (
+              <Button variant="subtle" size="sm" onClick={exportCsv}>
+                Export CSV
+              </Button>
+            )}
+          </div>
+        }
       />
 
       <div className="mb-4 flex items-center gap-2">

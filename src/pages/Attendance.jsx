@@ -179,12 +179,18 @@ export default function Attendance() {
         )}
       </Card>
 
-      {can.viewAllAttendance(role) && <TodayRoster wd={wd} isDemo={isDemo} />}
+      {can.viewAllAttendance(role) && <AttendanceLog isDemo={isDemo} />}
     </div>
   )
 }
 
-// Manager view: who has checked in today.
+// Hours between check-in and check-out, e.g. "6.5h".
+function hoursWorked(inTs, outTs) {
+  if (!inTs || !outTs) return null
+  const h = (new Date(outTs) - new Date(inTs)) / 3600000
+  return `${h.toFixed(1)}h`
+}
+
 // Thumbnail of a check-in/out selfie. Click to open the full photo.
 function SelfieThumb({ url, label }) {
   if (!url) return null
@@ -205,17 +211,19 @@ function SelfieThumb({ url, label }) {
   )
 }
 
-function TodayRoster({ wd, isDemo }) {
+// Manager view: the attendance record for any chosen day, with selfies + hours.
+function AttendanceLog({ isDemo }) {
+  const [date, setDate] = useState(manilaDate())
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    setLoading(true)
     if (isDemo) {
       const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
-      // In demo the photo fields hold data URLs already, so use them directly.
       setRows(
         demoStore.attendance
-          .filter((a) => a.work_date === wd)
+          .filter((a) => a.work_date === date)
           .map((a) => ({
             ...a,
             profiles: nameOf[a.user_id],
@@ -232,19 +240,15 @@ function TodayRoster({ wd, isDemo }) {
       .select(
         'id, check_in_ts, check_out_ts, check_in_photo_url, check_out_photo_url, profiles:user_id (full_name, branch)',
       )
-      .eq('work_date', wd)
+      .eq('work_date', date)
       .order('check_in_ts')
 
     const list = data || []
     // Sign every selfie path in one batch (private bucket → signed URLs only).
-    const paths = list.flatMap((r) =>
-      [r.check_in_photo_url, r.check_out_photo_url].filter(Boolean),
-    )
+    const paths = list.flatMap((r) => [r.check_in_photo_url, r.check_out_photo_url].filter(Boolean))
     let signed = {}
     if (paths.length) {
-      const { data: urls } = await supabase.storage
-        .from('attendance')
-        .createSignedUrls(paths, 600)
+      const { data: urls } = await supabase.storage.from('attendance').createSignedUrls(paths, 600)
       signed = Object.fromEntries((urls || []).map((u) => [u.path, u.signedUrl]))
     }
     setRows(
@@ -255,20 +259,44 @@ function TodayRoster({ wd, isDemo }) {
       })),
     )
     setLoading(false)
-  }, [isDemo, wd])
+  }, [isDemo, date])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
 
+  const isToday = date === manilaDate()
+  const shift = (days) => {
+    const d = new Date(date + 'T00:00:00')
+    d.setDate(d.getDate() + days)
+    setDate(d.toISOString().slice(0, 10))
+  }
+
   return (
     <Card>
-      <CardTitle eyebrow="Team" title="Checked in today" />
+      <CardTitle
+        eyebrow="Attendance record"
+        title={isToday ? 'Today' : date}
+        action={<Badge tone="neutral">{rows.length} in</Badge>}
+      />
+
+      <div className="mb-4 flex items-center gap-2">
+        <Button variant="subtle" size="sm" onClick={() => shift(-1)}>‹ Prev</Button>
+        <input
+          type="date"
+          value={date}
+          max={manilaDate()}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-xl border border-white/10 bg-plum-950/50 px-3 py-2 text-sm text-ink focus:border-gold/60 focus:outline-none"
+        />
+        <Button variant="subtle" size="sm" disabled={isToday} onClick={() => shift(1)}>Next ›</Button>
+      </div>
+
       {loading ? (
         <p className="text-sm text-ink-soft">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-ink-soft">No check-ins yet today.</p>
+        <p className="text-sm text-ink-soft">No check-ins recorded for this day.</p>
       ) : (
         <ul className="divide-y divide-white/6">
           {rows.map((r) => (
@@ -284,11 +312,19 @@ function TodayRoster({ wd, isDemo }) {
                 <SelfieThumb url={r.inUrl} label="Check-in" />
                 <SelfieThumb url={r.outUrl} label="Check-out" />
               </div>
-              <div className="w-16 text-right text-xs text-ink-soft">
+              <div className="w-20 text-right text-xs text-ink-soft">
                 <div>In {fmtTime(r.check_in_ts)}</div>
-                {r.check_out_ts && <div>Out {fmtTime(r.check_out_ts)}</div>}
+                <div>Out {r.check_out_ts ? fmtTime(r.check_out_ts) : '—'}</div>
               </div>
-              {r.check_out_ts ? <Badge tone="neutral">Done</Badge> : <Badge tone="ok">In</Badge>}
+              <div className="w-12 text-right">
+                {hoursWorked(r.check_in_ts, r.check_out_ts) ? (
+                  <span className="text-xs font-semibold text-gold">
+                    {hoursWorked(r.check_in_ts, r.check_out_ts)}
+                  </span>
+                ) : (
+                  <Badge tone="ok">In</Badge>
+                )}
+              </div>
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { demoStore } from '../lib/demoData'
+import { demoStore, DEMO_PROFILES } from '../lib/demoData'
 import { can } from '../lib/roles'
 import { downloadCsv } from '../lib/csv'
 import { Card, CardTitle, Field, Input, Select, Button, Badge, StatTile } from '../components/ui'
@@ -16,6 +16,18 @@ const monthLabel = (m) =>
   new Date(m + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
 const monthShort = (m) =>
   new Date(m + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'short' })
+
+// Module-level helpers keep impure calls (Date.now/new Date) out of the
+// component body, where the React purity rule disallows them.
+const genId = (prefix) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+const auditEntry = (action, oldV, newV, by) => ({
+  id: genId('la'),
+  action,
+  old_value: oldV,
+  new_value: newV,
+  changed_by: by,
+  changed_at: new Date().toISOString(),
+})
 
 export default function Ledger() {
   const { profile, role, isDemo } = useAuth()
@@ -64,9 +76,12 @@ export default function Ledger() {
     if (isDemo) {
       if (editingId) {
         const i = demoStore.ledger.findIndex((r) => r.id === editingId)
+        const old = i >= 0 ? { ...demoStore.ledger[i] } : null
         if (i >= 0) demoStore.ledger[i] = { ...demoStore.ledger[i], ...values }
+        demoStore.ledgerAudit.push(auditEntry('update', old, { ...old, ...values }, profile.id))
       } else {
-        demoStore.ledger.unshift({ ...values, id: 'dl-' + Date.now(), entered_by: profile.id })
+        demoStore.ledger.unshift({ ...values, id: genId('dl'), entered_by: profile.id })
+        demoStore.ledgerAudit.push(auditEntry('insert', null, values, profile.id))
       }
       setRows([...demoStore.ledger])
       setForm(null)
@@ -88,7 +103,9 @@ export default function Ledger() {
   const removeEntry = async (id) => {
     if (isDemo) {
       const i = demoStore.ledger.findIndex((r) => r.id === id)
+      const old = i >= 0 ? { ...demoStore.ledger[i] } : null
       if (i >= 0) demoStore.ledger.splice(i, 1)
+      demoStore.ledgerAudit.push(auditEntry('delete', old, null, profile.id))
       setRows([...demoStore.ledger])
       return
     }
@@ -350,22 +367,27 @@ const ACTION = {
 
 function AuditLog({ isDemo }) {
   const [rows, setRows] = useState([])
+  const [people, setPeople] = useState({})
   const [open, setOpen] = useState(false)
 
   const load = useCallback(async () => {
-    if (isDemo) return
-    const { data } = await supabase
-      .from('ledger_audit')
-      .select('*')
-      .order('changed_at', { ascending: false })
-      .limit(40)
-    setRows(data || [])
+    if (isDemo) {
+      setPeople(Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p.full_name])))
+      setRows([...demoStore.ledgerAudit].sort((a, b) => b.changed_at.localeCompare(a.changed_at)))
+      return
+    }
+    const [{ data: audit }, { data: profs }] = await Promise.all([
+      supabase.from('ledger_audit').select('*').order('changed_at', { ascending: false }).limit(40),
+      supabase.from('profiles').select('id, full_name'),
+    ])
+    setPeople(Object.fromEntries((profs || []).map((p) => [p.id, p.full_name])))
+    setRows(audit || [])
   }, [isDemo])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open && !isDemo) load()
-  }, [open, load, isDemo])
+    if (open) load()
+  }, [open, load])
 
   const amt = (v) => (v == null ? '—' : '₱' + Number(v).toLocaleString('en-PH'))
 
@@ -378,11 +400,9 @@ function AuditLog({ isDemo }) {
       />
       {!open ? (
         <p className="text-sm text-ink-soft">
-          Every add, edit, and delete is recorded permanently — what changed, and when.
-          History can never be overwritten.
+          Every add, edit, and delete is recorded permanently — who changed it, what
+          changed, and when. History can never be overwritten.
         </p>
-      ) : isDemo ? (
-        <p className="text-sm text-ink-soft">The live edit history appears here once connected to Supabase.</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-ink-soft">No changes recorded yet.</p>
       ) : (
@@ -392,6 +412,7 @@ function AuditLog({ isDemo }) {
             const cur = a.new_value || a.old_value || {}
             const changedAmount =
               a.action === 'update' && a.old_value && a.new_value && a.old_value.amount !== a.new_value.amount
+            const editor = people[a.changed_by] || 'Someone'
             return (
               <li key={a.id} className="py-2.5 text-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -400,7 +421,13 @@ function AuditLog({ isDemo }) {
                     <span className="text-ink-soft">{cur.category || cur.type || 'entry'}</span>
                   </span>
                   <span className="text-xs text-ink-mute">
-                    {new Date(a.changed_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
+                    {new Date(a.changed_at).toLocaleString('en-PH', {
+                      timeZone: 'Asia/Manila',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-ink-soft">
@@ -409,6 +436,8 @@ function AuditLog({ isDemo }) {
                   ) : (
                     <>{amt(cur.amount)}{cur.branch ? ` · ${cur.branch}` : ''}</>
                   )}
+                  <span className="text-ink-mute"> · by </span>
+                  <span className="font-semibold text-gold">{editor}</span>
                 </div>
               </li>
             )

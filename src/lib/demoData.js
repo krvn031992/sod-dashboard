@@ -159,6 +159,10 @@ export const demoStore = {
     { id: 'dl-8', entry_date: monthsAgoMid(2), type: 'income', category: 'Tuition', amount: 39800, branch: 'Quezon City', note: '', entered_by: 'demo-mgr' },
     { id: 'dl-9', entry_date: monthsAgoMid(2), type: 'expense', category: 'Rent', amount: 15000, branch: 'Quezon City', note: '', entered_by: 'demo-ceo' },
   ],
+  ledgerAudit: [
+    { id: 'la-1', action: 'insert', old_value: null, new_value: { category: 'Tuition', amount: 48500, type: 'income' }, changed_by: 'demo-mgr', changed_at: new Date(Date.now() - 86400000).toISOString() },
+    { id: 'la-2', action: 'update', old_value: { category: 'Venue', amount: 20000 }, new_value: { category: 'Venue', amount: 22000 }, changed_by: 'demo-ceo', changed_at: new Date(Date.now() - 3600000).toISOString() },
+  ],
   announcements: [
     {
       id: 'dan-1',

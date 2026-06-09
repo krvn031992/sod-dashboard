@@ -179,7 +179,33 @@ export default function Attendance() {
         )}
       </Card>
 
-      {can.viewAllAttendance(role) && <AttendanceLog isDemo={isDemo} />}
+      {can.viewAllAttendance(role) && <AttendanceRecord isDemo={isDemo} />}
+    </div>
+  )
+}
+
+// Manager record with two views: by day, or summarized by employee.
+function AttendanceRecord({ isDemo }) {
+  const [view, setView] = useState('day')
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {[
+          ['day', 'By day'],
+          ['employee', 'By employee'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              view === key ? 'bg-gold/15 text-gold' : 'border border-white/10 text-ink-soft hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === 'day' ? <AttendanceLog isDemo={isDemo} /> : <AttendanceByEmployee isDemo={isDemo} />}
     </div>
   )
 }
@@ -325,6 +351,139 @@ function AttendanceLog({ isDemo }) {
                   <Badge tone="ok">In</Badge>
                 )}
               </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+const thisMonth = () => manilaDate().slice(0, 7) // YYYY-MM
+const monthLabel = (ym) =>
+  new Date(ym + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+
+// Per-employee summary for a chosen month: days present + total hours, with a
+// drill-down to that person's individual days.
+function AttendanceByEmployee({ isDemo }) {
+  const [month, setMonth] = useState(thisMonth())
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [openId, setOpenId] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const start = `${month}-01`
+    const end = `${month}-31`
+    if (isDemo) {
+      const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
+      setRows(
+        demoStore.attendance
+          .filter((a) => a.work_date >= start && a.work_date <= end)
+          .map((a) => ({ ...a, profiles: nameOf[a.user_id] })),
+      )
+      setLoading(false)
+      return
+    }
+    const { data } = await supabase
+      .from('attendance')
+      .select('id, user_id, work_date, check_in_ts, check_out_ts, profiles:user_id (full_name, branch)')
+      .gte('work_date', start)
+      .lte('work_date', end)
+      .order('work_date')
+    setRows(data || [])
+    setLoading(false)
+  }, [isDemo, month])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [load])
+
+  // Group rows by employee.
+  const byEmp = {}
+  for (const r of rows) {
+    const e = (byEmp[r.user_id] ??= {
+      id: r.user_id,
+      name: r.profiles?.full_name || 'Member',
+      branch: r.profiles?.branch,
+      days: 0,
+      hours: 0,
+      rows: [],
+    })
+    e.days += 1
+    if (r.check_in_ts && r.check_out_ts) {
+      e.hours += (new Date(r.check_out_ts) - new Date(r.check_in_ts)) / 3600000
+    }
+    e.rows.push(r)
+  }
+  const employees = Object.values(byEmp).sort((a, b) => a.name.localeCompare(b.name))
+
+  const shiftMonth = (delta) => {
+    const d = new Date(month + '-01T00:00:00')
+    d.setMonth(d.getMonth() + delta)
+    setMonth(d.toISOString().slice(0, 7))
+  }
+  const isThisMonth = month === thisMonth()
+
+  return (
+    <Card>
+      <CardTitle
+        eyebrow="Attendance record"
+        title={monthLabel(month)}
+        action={<Badge tone="neutral">{employees.length} staff</Badge>}
+      />
+
+      <div className="mb-4 flex items-center gap-2">
+        <Button variant="subtle" size="sm" onClick={() => shiftMonth(-1)}>‹ Prev</Button>
+        <input
+          type="month"
+          value={month}
+          max={thisMonth()}
+          onChange={(e) => setMonth(e.target.value)}
+          className="rounded-xl border border-white/10 bg-plum-950/50 px-3 py-2 text-sm text-ink focus:border-gold/60 focus:outline-none"
+        />
+        <Button variant="subtle" size="sm" disabled={isThisMonth} onClick={() => shiftMonth(1)}>Next ›</Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-ink-soft">Loading…</p>
+      ) : employees.length === 0 ? (
+        <p className="text-sm text-ink-soft">No attendance recorded this month.</p>
+      ) : (
+        <ul className="space-y-2">
+          {employees.map((e) => (
+            <li key={e.id} className="rounded-2xl border border-white/8 bg-plum-950/40">
+              <button
+                onClick={() => setOpenId(openId === e.id ? null : e.id)}
+                className="flex w-full items-center gap-3 p-3 text-left"
+              >
+                <Avatar name={e.name} size={36} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-ink">{e.name}</div>
+                  <div className="text-xs text-ink-mute">{e.branch || '—'}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-display text-base font-semibold text-gold">{e.hours.toFixed(1)}h</div>
+                  <div className="text-xs text-ink-mute">{e.days} {e.days === 1 ? 'day' : 'days'}</div>
+                </div>
+              </button>
+
+              {openId === e.id && (
+                <ul className="border-t border-white/6 px-3 pb-2">
+                  {e.rows.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                      <span className="text-ink-soft">{r.work_date}</span>
+                      <span className="text-ink-mute">
+                        {fmtTime(r.check_in_ts)} – {r.check_out_ts ? fmtTime(r.check_out_ts) : '—'}
+                      </span>
+                      <span className="font-semibold text-ink">
+                        {hoursWorked(r.check_in_ts, r.check_out_ts) || '—'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

@@ -52,6 +52,24 @@ export const DEMO_PROFILES = [
 
 const today = () => new Date().toISOString().slice(0, 10)
 const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+// One demo attendance row N days ago with given check-in/out clock times.
+function demoMonthDay(userId, daysAgo, inHM, outHM) {
+  const d = new Date()
+  d.setDate(d.getDate() - daysAgo)
+  const wd = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+  const ts = (hm) => new Date(`${wd}T${hm}:00+08:00`).toISOString()
+  return [
+    {
+      id: `da-${userId}-${daysAgo}`,
+      user_id: userId,
+      work_date: wd,
+      check_in_ts: ts(inHM),
+      check_out_ts: ts(outHM),
+      check_in_photo_url: DEMO_SELFIE,
+      check_out_photo_url: DEMO_SELFIE,
+    },
+  ]
+}
 // Stand-in "selfie" for demo mode (real selfies are camera photos in a private bucket).
 const DEMO_SELFIE =
   'data:image/svg+xml;utf8,' +
@@ -115,6 +133,10 @@ export const demoStore = {
       check_in_photo_url: DEMO_SELFIE,
       check_out_photo_url: null,
     },
+    // A couple of earlier days this month so the per-employee summary has data.
+    ...demoMonthDay('demo-staff', 2, '09:05', '17:35'),
+    ...demoMonthDay('demo-staff', 3, '09:00', '16:50'),
+    ...demoMonthDay('demo-mgr', 2, '08:45', '18:10'),
   ],
   ledger: [
     { id: 'dl-1', entry_date: today(), type: 'income', category: 'Tuition', amount: 48500, branch: 'BGC', note: 'June enrollments', entered_by: 'demo-mgr' },

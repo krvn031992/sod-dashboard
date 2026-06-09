@@ -5,6 +5,7 @@ import { demoStore, DEMO_PROFILES } from '../lib/demoData'
 import { can } from '../lib/roles'
 import { Card, CardTitle, Button, Badge, Avatar } from '../components/ui'
 import CameraCapture from '../components/CameraCapture'
+import { downloadCsv } from '../lib/csv'
 
 const manilaDate = () =>
   new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -18,45 +19,6 @@ const fmtTime = (ts) =>
       })
     : '—'
 
-// Build + download a CSV from a 2D array (header first). Works on desktop and
-// mobile: tries the native share sheet first (so iPhone/Android can save to
-// Files, email, etc.), then falls back to a normal download. BOM + CRLF so
-// Excel opens UTF-8 cleanly (accents render correctly).
-async function downloadCsv(filename, rows2d) {
-  const cell = (v) => {
-    const s = v == null ? '' : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const csv = rows2d.map((r) => r.map(cell).join(',')).join('\r\n')
-  // Lead with a UTF-8 BOM so Excel detects encoding and renders accents.
-  const blob = new Blob([String.fromCharCode(0xfeff), csv], { type: 'text/csv;charset=utf-8;' })
-
-  // Native share (mobile): best UX, lets the user save anywhere.
-  try {
-    const file = new File([blob], filename, { type: 'text/csv' })
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename })
-      return
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return // user cancelled the share sheet
-    // otherwise fall through to a normal download
-  }
-
-  // Desktop / fallback download.
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.rel = 'noopener'
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  setTimeout(() => {
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, 1000)
-}
 
 export default function Attendance() {
   const { profile, role, isDemo } = useAuth()

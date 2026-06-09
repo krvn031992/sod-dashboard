@@ -52,6 +52,13 @@ export const DEMO_PROFILES = [
 
 const today = () => new Date().toISOString().slice(0, 10)
 const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+// The 15th of the month N months before now (YYYY-MM-15).
+const monthsAgoMid = (n) => {
+  const d = new Date()
+  d.setDate(1)
+  d.setMonth(d.getMonth() - n)
+  return d.toISOString().slice(0, 7) + '-15'
+}
 // One demo attendance row N days ago with given check-in/out clock times.
 function demoMonthDay(userId, daysAgo, inHM, outHM) {
   const d = new Date()
@@ -139,10 +146,18 @@ export const demoStore = {
     ...demoMonthDay('demo-mgr', 2, '08:45', '18:10'),
   ],
   ledger: [
-    { id: 'dl-1', entry_date: today(), type: 'income', category: 'Tuition', amount: 48500, branch: 'BGC', note: 'June enrollments', entered_by: 'demo-mgr' },
+    // Current month
+    { id: 'dl-1', entry_date: today(), type: 'income', category: 'Tuition', amount: 48500, branch: 'BGC', note: 'Enrollments', entered_by: 'demo-mgr' },
     { id: 'dl-2', entry_date: today(), type: 'income', category: 'Recital tickets', amount: 31100, branch: 'Manila', note: 'VIP + GA', entered_by: 'demo-mgr' },
     { id: 'dl-3', entry_date: today(), type: 'expense', category: 'Venue', amount: 22000, branch: 'Manila', note: 'Aliw deposit', entered_by: 'demo-ceo' },
     { id: 'dl-4', entry_date: today(), type: 'expense', category: 'Payroll', amount: 18750, branch: 'BGC', note: 'Instructors', entered_by: 'demo-ceo' },
+    // Last month
+    { id: 'dl-5', entry_date: monthsAgoMid(1), type: 'income', category: 'Tuition', amount: 45200, branch: 'BGC', note: '', entered_by: 'demo-mgr' },
+    { id: 'dl-6', entry_date: monthsAgoMid(1), type: 'expense', category: 'Payroll', amount: 17500, branch: 'BGC', note: '', entered_by: 'demo-ceo' },
+    { id: 'dl-7', entry_date: monthsAgoMid(1), type: 'expense', category: 'Marketing', amount: 6500, branch: 'Manila', note: 'Ads', entered_by: 'demo-mkt' },
+    // Two months ago
+    { id: 'dl-8', entry_date: monthsAgoMid(2), type: 'income', category: 'Tuition', amount: 39800, branch: 'Quezon City', note: '', entered_by: 'demo-mgr' },
+    { id: 'dl-9', entry_date: monthsAgoMid(2), type: 'expense', category: 'Rent', amount: 15000, branch: 'Quezon City', note: '', entered_by: 'demo-ceo' },
   ],
   announcements: [
     {

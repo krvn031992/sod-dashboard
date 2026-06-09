@@ -18,20 +18,44 @@ const fmtTime = (ts) =>
       })
     : '—'
 
-// Build + download a CSV from a 2D array of rows (header first). No deps.
-function downloadCsv(filename, rows2d) {
+// Build + download a CSV from a 2D array (header first). Works on desktop and
+// mobile: tries the native share sheet first (so iPhone/Android can save to
+// Files, email, etc.), then falls back to a normal download. BOM + CRLF so
+// Excel opens UTF-8 cleanly (accents render correctly).
+async function downloadCsv(filename, rows2d) {
   const cell = (v) => {
     const s = v == null ? '' : String(v)
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
-  const csv = rows2d.map((r) => r.map(cell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const csv = rows2d.map((r) => r.map(cell).join(',')).join('\r\n')
+  // Lead with a UTF-8 BOM so Excel detects encoding and renders accents.
+  const blob = new Blob([String.fromCharCode(0xfeff), csv], { type: 'text/csv;charset=utf-8;' })
+
+  // Native share (mobile): best UX, lets the user save anywhere.
+  try {
+    const file = new File([blob], filename, { type: 'text/csv' })
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename })
+      return
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return // user cancelled the share sheet
+    // otherwise fall through to a normal download
+  }
+
+  // Desktop / fallback download.
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  a.rel = 'noopener'
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  setTimeout(() => {
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, 1000)
 }
 
 export default function Attendance() {
@@ -386,6 +410,7 @@ function AttendanceByEmployee({ isDemo }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState(null)
+  const [note, setNote] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -442,7 +467,12 @@ function AttendanceByEmployee({ isDemo }) {
   }
   const isThisMonth = month === thisMonth()
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
+    setNote(null)
+    if (employees.length === 0) {
+      setNote('No attendance recorded this month yet — there’s nothing to export.')
+      return
+    }
     const detail = [['Employee', 'Branch', 'Date', 'Check-in', 'Check-out', 'Hours']]
     rows
       .slice()
@@ -468,7 +498,12 @@ function AttendanceByEmployee({ isDemo }) {
     detail.push([])
     detail.push(['Employee', 'Days', 'Total hours'])
     employees.forEach((e) => detail.push([e.name, e.days, e.hours.toFixed(2)]))
-    downloadCsv(`attendance-${month}.csv`, detail)
+    try {
+      await downloadCsv(`attendance-${month}.csv`, detail)
+      setNote(`Exported attendance-${month}.csv — check your downloads or share sheet.`)
+    } catch {
+      setNote('Could not export on this device. Try from a laptop, or tell me what device you’re on.')
+    }
   }
 
   return (
@@ -479,11 +514,9 @@ function AttendanceByEmployee({ isDemo }) {
         action={
           <div className="flex items-center gap-2">
             <Badge tone="neutral">{employees.length} staff</Badge>
-            {employees.length > 0 && (
-              <Button variant="subtle" size="sm" onClick={exportCsv}>
-                Export CSV
-              </Button>
-            )}
+            <Button variant="subtle" size="sm" onClick={exportCsv}>
+              Export CSV
+            </Button>
           </div>
         }
       />
@@ -499,6 +532,12 @@ function AttendanceByEmployee({ isDemo }) {
         />
         <Button variant="subtle" size="sm" disabled={isThisMonth} onClick={() => shiftMonth(1)}>Next ›</Button>
       </div>
+
+      {note && (
+        <p className="mb-4 rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-sm text-gold">
+          {note}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-sm text-ink-soft">Loading…</p>

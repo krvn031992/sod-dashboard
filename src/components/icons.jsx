@@ -115,6 +115,15 @@ export const CalendarIcon = (p) => (
   </svg>
 )
 
+export const ScheduleIcon = (p) => (
+  <svg {...base} {...p}>
+    <rect x="3.5" y="5" width="17" height="16" rx="2" />
+    <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+    <circle cx="9" cy="14" r="1.3" />
+    <path d="M12.5 14H16" />
+  </svg>
+)
+
 export const ClassesIcon = (p) => (
   <svg {...base} {...p}>
     <path d="M12 4 3 8l9 4 9-4-9-4z" />

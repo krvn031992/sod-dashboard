@@ -45,6 +45,7 @@ export const can = {
   editCalendar: (r) => r === 'ceo' || r === 'coo',
   inputCustomers: (r) => r === 'ceo' || r === 'admin_manager',
   manageClasses: (r) => r === 'ceo' || r === 'coo' || r === 'admin_manager',
+  manageSchedule: (r) => r === 'ceo' || r === 'coo',
   approveItems: (r) => r === 'ceo',
   viewRetention: (r) => MANAGER_PLUS.includes(r),
 }

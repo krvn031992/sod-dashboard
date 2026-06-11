@@ -59,6 +59,11 @@ const monthsAgoMid = (n) => {
   d.setMonth(d.getMonth() - n)
   return d.toISOString().slice(0, 7) + '-15'
 }
+// A given day-of-month in the current (Manila) month, e.g. mday(5) → 2026-06-05.
+const mday = (d) =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }).slice(0, 7) +
+  '-' +
+  String(d).padStart(2, '0')
 // One demo attendance row N days ago with given check-in/out clock times.
 function demoMonthDay(userId, daysAgo, inHM, outHM) {
   const d = new Date()
@@ -205,6 +210,14 @@ export const demoStore = {
     { id: 'dcl-3', name: 'Jazz', active: true },
     { id: 'dcl-4', name: 'Contemporary', active: true },
     { id: 'dcl-5', name: 'Adult', active: true },
+  ],
+  schedules: [
+    { id: 'ds-1', user_id: 'demo-staff', work_date: mday(3), shift: '9:00 AM – 6:00 PM', branch: 'Manila', note: '' },
+    { id: 'ds-2', user_id: 'demo-mgr', work_date: mday(3), shift: '10:00 AM – 7:00 PM', branch: 'BGC', note: '' },
+    { id: 'ds-3', user_id: 'demo-staff', work_date: mday(4), shift: '12:00 PM – 9:00 PM', branch: 'Manila', note: 'Closing' },
+    { id: 'ds-4', user_id: 'demo-mkt', work_date: mday(4), shift: '9:00 AM – 6:00 PM', branch: 'BGC', note: '' },
+    { id: 'ds-5', user_id: 'demo-mgr', work_date: mday(10), shift: '9:00 AM – 6:00 PM', branch: 'Quezon City', note: '' },
+    { id: 'ds-6', user_id: 'demo-staff', work_date: mday(10), shift: 'Off', branch: '', note: 'Rest day' },
   ],
   messages: [
     { id: 'dm-1', channel: 'general', sender_id: 'demo-coo', body: 'Morning team! Recital run sheet is locked — great work everyone.', attachment_url: null, created_at: new Date(Date.now() - 3600000).toISOString() },

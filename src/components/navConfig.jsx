@@ -15,6 +15,7 @@ import {
   CalendarIcon,
   ChatIcon,
   ClassesIcon,
+  ScheduleIcon,
 } from './icons'
 
 // The four daily-ops items shown in the mobile bottom bar.
@@ -31,7 +32,7 @@ export function navSections(role) {
   const sections = [
     {
       title: 'Daily',
-      items: CORE,
+      items: [...CORE, { to: '/schedule', label: 'Schedule', icon: ScheduleIcon }],
     },
     {
       title: 'Comms',

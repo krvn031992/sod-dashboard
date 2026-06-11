@@ -17,6 +17,7 @@ import Goals from './pages/Goals'
 import Calendar from './pages/Calendar'
 import Chat from './pages/Chat'
 import Classes from './pages/Classes'
+import Schedule from './pages/Schedule'
 import Menu from './pages/Menu'
 import { LogoMark } from './components/Logo'
 
@@ -137,6 +138,14 @@ export default function App() {
         element={
           <Protected>
             <Calendar />
+          </Protected>
+        }
+      />
+      <Route
+        path="/schedule"
+        element={
+          <Protected>
+            <Schedule />
           </Protected>
         }
       />

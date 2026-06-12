@@ -364,6 +364,12 @@ function AttendanceLog({ isDemo }) {
 const thisMonth = () => manilaDate().slice(0, 7) // YYYY-MM
 const monthLabel = (ym) =>
   new Date(ym + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+// First day of the next month — an exclusive upper bound that avoids invalid
+// dates like 2026-06-31 (which Postgres rejects).
+const nextMonthStart = (m) => {
+  const [y, mm] = m.split('-').map(Number)
+  return `${mm === 12 ? y + 1 : y}-${String(mm === 12 ? 1 : mm + 1).padStart(2, '0')}-01`
+}
 
 // Per-employee summary for a chosen month: days present + total hours, with a
 // drill-down to that person's individual days.
@@ -377,12 +383,12 @@ function AttendanceByEmployee({ isDemo }) {
   const load = useCallback(async () => {
     setLoading(true)
     const start = `${month}-01`
-    const end = `${month}-31`
+    const end = nextMonthStart(month)
     if (isDemo) {
       const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
       setRows(
         demoStore.attendance
-          .filter((a) => a.work_date >= start && a.work_date <= end)
+          .filter((a) => a.work_date >= start && a.work_date < end)
           .map((a) => ({ ...a, profiles: nameOf[a.user_id] })),
       )
       setLoading(false)
@@ -392,7 +398,7 @@ function AttendanceByEmployee({ isDemo }) {
       .from('attendance')
       .select('id, user_id, work_date, check_in_ts, check_out_ts, profiles:user_id (full_name, branch)')
       .gte('work_date', start)
-      .lte('work_date', end)
+      .lt('work_date', end)
       .order('work_date')
     setRows(data || [])
     setLoading(false)

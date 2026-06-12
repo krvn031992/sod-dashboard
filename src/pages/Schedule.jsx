@@ -14,6 +14,12 @@ const monthLabel = (m) =>
 const dayLabel = (d) =>
   new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })
 const genId = (p) => `${p}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+// First day of the month AFTER `month` (YYYY-MM) — used as an exclusive upper
+// bound so we never construct an invalid date like 2026-06-31.
+const nextMonthStart = (month) => {
+  const [y, m] = month.split('-').map(Number)
+  return `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`
+}
 
 export default function Schedule() {
   const { profile, role, isDemo } = useAuth()
@@ -30,12 +36,12 @@ export default function Schedule() {
   const load = useCallback(async () => {
     setLoading(true)
     const start = `${month}-01`
-    const end = `${month}-31`
+    const end = nextMonthStart(month)
     if (isDemo) {
       const nameOf = Object.fromEntries(DEMO_PROFILES.map((p) => [p.id, p]))
       setShifts(
         demoStore.schedules
-          .filter((s) => s.work_date >= start && s.work_date <= end)
+          .filter((s) => s.work_date >= start && s.work_date < end)
           .map((s) => ({ ...s, profiles: nameOf[s.user_id] })),
       )
       setPeople(DEMO_PROFILES)
@@ -47,7 +53,7 @@ export default function Schedule() {
         .from('schedules')
         .select('*, profiles:user_id (full_name, branch)')
         .gte('work_date', start)
-        .lte('work_date', end)
+        .lt('work_date', end)
         .order('work_date'),
       supabase.from('profiles').select('id, full_name, active').order('full_name'),
     ])

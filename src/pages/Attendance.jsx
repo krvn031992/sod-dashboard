@@ -27,6 +27,7 @@ export default function Attendance() {
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState(null) // 'in' | 'out' | null
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
 
   const wd = manilaDate()
 
@@ -57,6 +58,7 @@ export default function Attendance() {
 
   const handleCapture = async (blob, dataUrl) => {
     setError('')
+    setInfo('')
     setBusy(true)
 
     if (isDemo) {
@@ -84,26 +86,38 @@ export default function Attendance() {
       return
     }
 
+    // The server timestamp is the payroll record; the selfie only confirms it
+    // was you. So a photo-upload problem must NOT block the check-in itself.
+    let photoPath = null
+    let photoFailed = false
     try {
       const path = `${profile.id}/${wd}-${mode}.jpg`
       const { error: upErr } = await supabase.storage
         .from('attendance')
         .upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
-      if (upErr) throw upErr
+      if (upErr) photoFailed = true
+      else photoPath = path
+    } catch {
+      photoFailed = true
+    }
 
+    try {
       if (mode === 'in') {
         const { error: insErr } = await supabase
           .from('attendance')
-          .insert({ user_id: profile.id, check_in_photo_url: path })
+          .insert({ user_id: profile.id, check_in_photo_url: photoPath })
         if (insErr) throw insErr
       } else {
         const { error: updErr } = await supabase
           .from('attendance')
-          .update({ check_out_photo_url: path })
+          .update({ check_out_photo_url: photoPath })
           .eq('id', record.id)
         if (updErr) throw updErr
       }
       await loadToday()
+      if (photoFailed) {
+        setInfo('Your time was recorded. The selfie could not be saved yet — ask your admin to finish photo storage setup.')
+      }
     } catch (e) {
       setError(e.message || String(e))
     } finally {
@@ -131,6 +145,11 @@ export default function Attendance() {
       {error && (
         <p className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">
           {error}
+        </p>
+      )}
+      {info && (
+        <p className="rounded-lg border border-gold/30 bg-gold/10 px-3 py-2 text-sm text-gold">
+          {info}
         </p>
       )}
 
